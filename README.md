@@ -1,5 +1,8 @@
 # puccinia
 
+*Puccinia allii is the taxonomic name for the species of Rust blight that
+ infects onions.*
+
 ## summary
 
 Rust program that consumes the API exposed through Tor control port.
