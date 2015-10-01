@@ -4,4 +4,4 @@ version = "0.1.0"
 authors = ["du5t <du5t@hitono.info>"]
 
 [dependencies]
-mio = "0.3.0"
+mio = "0.4.1"
