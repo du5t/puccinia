@@ -1,7 +1,7 @@
 extern crate bufstream;
 extern crate chrono;
 // use std::net::*;
-use std::net::{TcpStream, SocketAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr};
 use self::bufstream::BufStream;
 use self::chrono::*;
 
@@ -70,8 +70,8 @@ impl ControlSocket for ControlPort {
         // this just wraps the currently-unstable is_loopback() method for now
         match self.address.ip() {
             // enumerate over IpAddr enum since is_loopback() is not there yet
-            Ipv4Addr(address) => address.is_loopback(),
-            Ipv6Addr(address) => address.is_loopback()
+            IpAddr::V4(address) => address.is_loopback(),
+            IpAddr::V6(address) => address.is_loopback()
         }
     }
     pub fn connection_time(&self) -> chrono::duration::Duration {
