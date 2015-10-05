@@ -5,4 +5,4 @@ authors = ["du5t <du5t@hitono.info>"]
 
 [dependencies]
 bufstream = "0.1"
-time = "0.1"
+chrono = "0.2"
