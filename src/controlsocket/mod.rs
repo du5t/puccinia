@@ -1,6 +1,7 @@
 extern crate bufstream;
 extern crate chrono;
 use std::net::*;
+use std::io::{Read, Write, BufRead};
 // use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
 use self::bufstream::BufStream;
 use self::chrono::*;
@@ -58,10 +59,10 @@ impl ControlSocket for ControlPort {
         self.address.port()
     }
     fn send(&self, message: &str) -> Result<usize, Display> {
-        try!(self.buf_stream.write_all(message, self.buffer));
+        try!(self.buf_stream.write_all(message.as_bytes()));
     }
     pub fn recv(&self) -> Result<usize, Display> {
-        try!(self.buf_stream.read_until("\r", self.buffer))
+        try!(self.buf_stream.read_until(b'\r', &self.buffer))
     }
     pub fn is_alive(&self) -> bool {
         // TODO is this even necessary?
