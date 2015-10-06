@@ -1,7 +1,9 @@
 extern crate bufstream;
 extern crate chrono;
 use std::net::*;
-use std::io::{Read, Write, BufRead, Error, IntoInnerError};
+use std::error::Error;
+use std::io::{Read, Write, BufRead, IntoInnerError};
+use std::io;
 // use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
 use self::bufstream::BufStream;
 use self::chrono::*;
@@ -13,8 +15,8 @@ use self::chrono::*;
 
 
 trait ControlSocket<'a> {
-    fn send(&'a mut self, message: &str) -> Result<(), Error>;
-    fn recv(&'a mut self) -> Result<usize, Error>;
+    fn send(&'a mut self, message: &str) -> Result<(), io::Error>;
+    fn recv(&'a mut self) -> Result<usize, io::Error>;
     fn get_address(&'a mut self) -> String;
     fn get_port(&'a mut self) -> u16;
     // fn is_alive(&'a self) -> bool;
@@ -58,10 +60,10 @@ impl<'a> ControlSocket<'a> for ControlPort {
     fn get_port(&mut self) -> u16 {
         self.address.port()
     }
-    fn send(&mut self, message: &str) -> Result<(), Error> {
+    fn send(&mut self, message: &str) -> Result<(), io::Error> {
         self.buf_stream.write_all(message.as_bytes())
     }
-    fn recv(&mut self) -> Result<usize, Error> {
+    fn recv(&mut self) -> Result<usize, io::Error> {
         self.buf_stream.read_until(b'\r', &mut self.buffer)
     }
     // fn is_alive(&mut self) -> bool {
@@ -81,7 +83,15 @@ impl<'a> ControlSocket<'a> for ControlPort {
     fn close(self) -> Result<(), Error> {
         // TODO unwrap call here: need to handle two possible error types:
         // IntoInnerError<BufStream<TcpStream>>> and io::Error
-        let tcp_stream = self.buf_stream.into_inner().unwrap();
+         // let tcp_stream = match self.buf_stream.into_inner() {
+         //     Ok(stream) => stream,
+         //     Err(err) => return err
+         // };
+         // match tcp_stream.shutdown(Shutdown::Both) {
+         //     Ok(sb) => sb,
+         //     Err(err) => return err
+        // }
+        let tcp_stream = try!(self.buf_stream.into_inner());
         tcp_stream.shutdown(Shutdown::Both)
     }
 }
