@@ -13,58 +13,61 @@ use self::chrono::*;
 
 
 trait ControlSocket<'a> {
-    fn send(&'a self, message: &str) -> Result<usize, Error>;
-    fn recv(&'a self) -> Result<usize, Error>;
-    fn get_address(&'a self) -> String;
-    fn get_port(&'a self) -> u16;
-    fn is_alive(&'a self) -> bool;
-    fn is_localhost(&'a self) -> bool;
-    fn connection_time(&'a self) -> Duration;
+    fn send(&'a mut self, message: &str) -> Result<(), Error>;
+    fn recv(&'a mut self) -> Result<usize, Error>;
+    fn get_address(&'a mut self) -> String;
+    fn get_port(&'a mut self) -> u16;
+    // fn is_alive(&'a self) -> bool;
+    fn is_localhost(&'a mut self) -> bool;
+    fn connection_time(&'a mut self) -> Duration;
     // fn connect(&self); // TODO need this kind of stateful info? new == connect?
-    fn close(&'a self) -> Result<(), IntoInnerError<BufStream<TcpStream>>>;
+    fn close(self) -> Result<(), Error>;
 }
 
-struct ControlPort<'a> {
+struct ControlPort {
     address: SocketAddr,
     buf_stream: BufStream<TcpStream>,
-    buffer: &'a Vec<u8>,
+    buffer: Vec<u8>,
     time_connected: DateTime<UTC>
 //    connected: bool
 }
 
-impl<'a> ControlPort<'a> {
+impl ControlPort {
     fn new(dest_addr: &str, dest_port: u16) -> ControlPort {
-        let stream = try!(TcpStream::connect((dest_addr, dest_port)));
+        // TODO handle this error, don't unwrap
+        let stream = TcpStream::connect((dest_addr, dest_port)).unwrap();
+        let address = stream.peer_addr().unwrap();
         let buf_stream = BufStream::new(stream);
-        let mut vec_buffer = Vec::<u8>::with_capacity(2048);
+        let vec_buffer = Vec::<u8>::with_capacity(2048);
         
         // return constructed instance
         ControlPort {
-            address: stream.peer_addr().unwrap(), // this should be ok if above ok
+            // this should be ok if above ok
+            address: address,
             buf_stream: buf_stream,
-            buffer: &mut vec_buffer,
+            buffer: vec_buffer,
             time_connected: UTC::now()
         }
     }
 }
 
-impl<'a> ControlSocket<'a> for ControlPort<'a> {
-    fn get_address(&self) -> String {
+impl<'a> ControlSocket<'a> for ControlPort {
+    fn get_address(&mut self) -> String {
         self.address.to_string()
     }
-    fn get_port(&self) -> u16 {
+    fn get_port(&mut self) -> u16 {
         self.address.port()
     }
-    fn send(&self, message: &str) -> Result<usize, Error> {
-        try!(self.buf_stream.write_all(message.as_bytes()));
+    fn send(&mut self, message: &str) -> Result<(), Error> {
+        self.buf_stream.write_all(message.as_bytes())
     }
-        try!(self.buf_stream.read_until(b'\r', &self.buffer))
-    pub fn recv(&self) -> Result<usize, Error> {
+    fn recv(&mut self) -> Result<usize, Error> {
+        self.buf_stream.read_until(b'\r', &mut self.buffer)
     }
-    pub fn is_alive(&self) -> bool {
-        // TODO is this even necessary?
-    }
-    pub fn is_localhost(&self) -> bool {
+    // fn is_alive(&mut self) -> bool {
+    //     // TODO is this even necessary?
+    // }
+    fn is_localhost(&mut self) -> bool {
         // this just wraps the currently-unstable is_loopback() method for now
         match self.address.ip() {
             // enumerate over IpAddr enum since is_loopback() is not there yet
@@ -72,11 +75,13 @@ impl<'a> ControlSocket<'a> for ControlPort<'a> {
             IpAddr::V6(address) => address.is_loopback()
         }
     }
-    pub fn connection_time(&self) -> chrono::duration::Duration {
+    fn connection_time(&mut self) -> chrono::duration::Duration {
         chrono::UTC::now() - self.time_connected
     }
-    pub fn close(&self) -> Result<(), IntoInnerError<BufStream<TcpStream>>> {
-        let tcp_stream = try!(self.buf_stream.into_inner());
+    fn close(self) -> Result<(), Error> {
+        // TODO unwrap call here: need to handle two possible error types:
+        // IntoInnerError<BufStream<TcpStream>>> and io::Error
+        let tcp_stream = self.buf_stream.into_inner().unwrap();
         tcp_stream.shutdown(Shutdown::Both)
     }
 }
@@ -84,7 +89,7 @@ impl<'a> ControlSocket<'a> for ControlPort<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::ControlPort;
+    use super::{ControlPort, ControlSocket};
 
     // TODO refactor all of these
     
@@ -93,19 +98,20 @@ mod tests {
     fn constructor_no_connection() {
         let test_ip = "127.0.0.1";
         let test_port = 9051;
-        let test_control_port = ControlPort::new(test_ip, test_port);
+        let mut test_control_port = ControlPort::new(test_ip, test_port);
         assert_eq!(test_control_port.get_address(), test_ip);
         assert_eq!(test_control_port.get_port(), test_port);
         assert!(test_control_port.is_localhost());
-        assert!(!test_control_port.buf_stream.is_some());
+        // TODO figure out how to test valid state of buf_stream
+        // assert!(!test_control_port.buf_stream);
     }
 
     // [should_panic(expected = "Could not connect with given addresses:")]
     #[test]
     #[should_panic]
     fn constructor_bad_addr() {
-        let test_ip = "9999999";
-        let test_port = 9051;
-        let test_control_port = ControlPort::new(test_ip, test_port);
+        // let test_ip = "9999999";
+        // let test_port = 9051;
+        // let test_control_port = ControlPort::new(test_ip, test_port);
     }
 }
