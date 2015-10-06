@@ -1,7 +1,7 @@
 extern crate bufstream;
 extern crate chrono;
 use std::net::*;
-use std::io::{Read, Write, BufRead};
+use std::io::{Read, Write, BufRead, Error, IntoInnerError};
 // use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
 use self::bufstream::BufStream;
 use self::chrono::*;
@@ -10,22 +10,17 @@ use self::chrono::*;
 // socket buffer size should be at least 2048 re: tor dev list discussion
 
 // TODO consistent error handling--don't just return err.to_string() or w/e
-use std::fmt::Display;
-trait Error: Display {
-    fn description(&self) -> &str;
-    fn cause(&self) -> Option<&Error> { None }
-}
 
 trait ControlSocket {
-    fn send(&self, message: &str) -> Result<usize, Display>;
-    fn recv(&self) -> Result<usize, Display>;
     fn get_address(&self) -> String;
     fn get_port(&self) -> u16;
     fn is_alive(&self) -> bool;
     fn is_localhost(&self) -> bool;
     fn connection_time(&self) -> Duration;
+    fn send(&'a self, message: &str) -> Result<usize, Error>;
+    fn recv(&'a self) -> Result<usize, Error>;
     // fn connect(&self); // TODO need this kind of stateful info? new == connect?
-    fn close(&self) -> Result<(), Display>;
+    fn close(&'a self) -> Result<(), IntoInnerError<BufStream<TcpStream>>>;
 }
 
 struct ControlPort {
@@ -58,11 +53,11 @@ impl ControlSocket for ControlPort {
     fn get_port(&self) -> u16 {
         self.address.port()
     }
-    fn send(&self, message: &str) -> Result<usize, Display> {
+    fn send(&self, message: &str) -> Result<usize, Error> {
         try!(self.buf_stream.write_all(message.as_bytes()));
     }
-    pub fn recv(&self) -> Result<usize, Display> {
         try!(self.buf_stream.read_until(b'\r', &self.buffer))
+    pub fn recv(&self) -> Result<usize, Error> {
     }
     pub fn is_alive(&self) -> bool {
         // TODO is this even necessary?
@@ -78,7 +73,7 @@ impl ControlSocket for ControlPort {
     pub fn connection_time(&self) -> chrono::duration::Duration {
         chrono::UTC::now() - self.time_connected
     }
-    pub fn close(&self) -> Result<(), Display> {
+    pub fn close(&self) -> Result<(), IntoInnerError<BufStream<TcpStream>>> {
         let tcp_stream = try!(self.buf_stream.into_inner());
         tcp_stream.shutdown(Shutdown::Both)
     }
