@@ -31,7 +31,7 @@ struct ControlPort {
     address: SocketAddr,
     buf_stream: BufStream<TcpStream>,
     buffer: Vec<()>,
-    connect_time: chrono::duration::Duration
+    time_connected: DateTime<UTC>
 //    connected: bool
 }
 
@@ -45,7 +45,7 @@ impl ControlPort {
             address: stream.peer_addr().unwrap(), // this should be ok if above ok
             buf_stream: buf_stream,
             buffer: Vec::with_capacity(2048),
-            connect_time: chrono::duration::Duration::zero()
+            time_connected: UTC::now()
         }
     }
 }
@@ -75,7 +75,7 @@ impl ControlSocket for ControlPort {
         }
     }
     pub fn connection_time(&self) -> chrono::duration::Duration {
-        chrono::datetime::DateTime::now_utc() - self.connect_time
+        chrono::UTC::now() - self.time_connected
     }
     pub fn close(&self) -> Result<(), Display> {
         let tcp_stream = try!(self.buf_stream.into_inner());
