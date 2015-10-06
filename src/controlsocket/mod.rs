@@ -11,42 +11,44 @@ use self::chrono::*;
 
 // TODO consistent error handling--don't just return err.to_string() or w/e
 
-trait ControlSocket {
-    fn get_address(&self) -> String;
-    fn get_port(&self) -> u16;
-    fn is_alive(&self) -> bool;
-    fn is_localhost(&self) -> bool;
-    fn connection_time(&self) -> Duration;
+
+trait ControlSocket<'a> {
     fn send(&'a self, message: &str) -> Result<usize, Error>;
     fn recv(&'a self) -> Result<usize, Error>;
+    fn get_address(&'a self) -> String;
+    fn get_port(&'a self) -> u16;
+    fn is_alive(&'a self) -> bool;
+    fn is_localhost(&'a self) -> bool;
+    fn connection_time(&'a self) -> Duration;
     // fn connect(&self); // TODO need this kind of stateful info? new == connect?
     fn close(&'a self) -> Result<(), IntoInnerError<BufStream<TcpStream>>>;
 }
 
-struct ControlPort {
+struct ControlPort<'a> {
     address: SocketAddr,
     buf_stream: BufStream<TcpStream>,
-    buffer: Vec<()>,
+    buffer: &'a Vec<u8>,
     time_connected: DateTime<UTC>
 //    connected: bool
 }
 
-impl ControlPort {
+impl<'a> ControlPort<'a> {
     fn new(dest_addr: &str, dest_port: u16) -> ControlPort {
         let stream = try!(TcpStream::connect((dest_addr, dest_port)));
         let buf_stream = BufStream::new(stream);
-
+        let mut vec_buffer = Vec::<u8>::with_capacity(2048);
+        
         // return constructed instance
         ControlPort {
             address: stream.peer_addr().unwrap(), // this should be ok if above ok
             buf_stream: buf_stream,
-            buffer: Vec::with_capacity(2048),
+            buffer: &mut vec_buffer,
             time_connected: UTC::now()
         }
     }
 }
 
-impl ControlSocket for ControlPort {
+impl<'a> ControlSocket<'a> for ControlPort<'a> {
     fn get_address(&self) -> String {
         self.address.to_string()
     }
