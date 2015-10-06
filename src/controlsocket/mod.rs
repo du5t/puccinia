@@ -1,7 +1,7 @@
 extern crate bufstream;
 extern crate chrono;
-// use std::net::*;
-use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::*;
+// use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
 use self::bufstream::BufStream;
 use self::chrono::*;
 
@@ -78,8 +78,8 @@ impl ControlSocket for ControlPort {
         chrono::datetime::DateTime::now_utc() - self.connect_time
     }
     pub fn close(&self) -> Result<(), Display> {
-        let tcp_stream = self.buf_stream.into_inner();
-        tcp_stream.shutdown()
+        let tcp_stream = try!(self.buf_stream.into_inner());
+        tcp_stream.shutdown(Shutdown::Both)
     }
 }
 
