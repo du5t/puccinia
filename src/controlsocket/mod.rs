@@ -75,7 +75,7 @@ impl ControlSocket for ControlPort {
         }
     }
     pub fn connection_time(&self) -> chrono::duration::Duration {
-        self.connect_time.sub(chrono::datetime::DateTime::now_utc())
+        chrono::datetime::DateTime::now_utc() - self.connect_time
     }
     pub fn close(&self) -> Result<(), Display> {
         let tcp_stream = self.buf_stream.into_inner();
