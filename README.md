@@ -5,7 +5,8 @@
 
 ## summary
 
-Rust program that consumes the API exposed through Tor control port.
+Rust program that consumes the API exposed through Tor control port. Requires
+nightly (1.5.0) for now.
 
 See:
 
