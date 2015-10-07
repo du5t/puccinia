@@ -2,10 +2,10 @@ extern crate bufstream;
 extern crate chrono;
 use std::net::*;
 use std::error::Error;
-use std::io::{Read, Write, BufRead, IntoInnerError};
+use std::io::{Read, Write, BufRead};
 use std::io;
 // use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
-use self::bufstream::BufStream;
+use self::bufstream::{BufStream, IntoInnerError};
 use self::chrono::*;
 
 // TODO store socket buffer size (1024?) as a constant out here somewhere
@@ -23,7 +23,7 @@ trait ControlSocket<'a> {
     fn is_localhost(&'a mut self) -> bool;
     fn connection_time(&'a mut self) -> Duration;
     // fn connect(&self); // TODO need this kind of stateful info? new == connect?
-    fn close(self) -> Result<(), Error>;
+    fn close(self);
 }
 
 struct ControlPort {
@@ -80,9 +80,9 @@ impl<'a> ControlSocket<'a> for ControlPort {
     fn connection_time(&mut self) -> chrono::duration::Duration {
         chrono::UTC::now() - self.time_connected
     }
-    fn close(self) -> Result<(), Error> {
+    fn close(self) {
         // TODO unwrap call here: need to handle two possible error types:
-        // IntoInnerError<BufStream<TcpStream>>> and io::Error
+        // IntoInnerError<BufStream<TcpStream>> and io::Error
          // let tcp_stream = match self.buf_stream.into_inner() {
          //     Ok(stream) => stream,
          //     Err(err) => return err
@@ -91,8 +91,9 @@ impl<'a> ControlSocket<'a> for ControlPort {
          //     Ok(sb) => sb,
          //     Err(err) => return err
         // }
-        let tcp_stream = try!(self.buf_stream.into_inner());
-        tcp_stream.shutdown(Shutdown::Both)
+        let tcp_stream = self.buf_stream.into_inner()
+            .unwrap()
+            .shutdown(Shutdown::Both);
     }
 }
 
