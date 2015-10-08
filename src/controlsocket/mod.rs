@@ -2,10 +2,10 @@ extern crate bufstream;
 extern crate chrono;
 use std::net::*;
 use std::error::Error;
-use std::io::{Read, Write, BufRead};
+use std::io::{Write, BufRead}; // Read also?
 use std::io;
 // use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
-use self::bufstream::{BufStream, IntoInnerError};
+use self::bufstream::{BufStream}; // IntoInnerError also once we handle it well
 use self::chrono::*;
 
 // TODO store socket buffer size (1024?) as a constant out here somewhere
@@ -23,7 +23,7 @@ trait ControlSocket<'a> {
     fn is_localhost(&'a mut self) -> bool;
     fn connection_time(&'a mut self) -> Duration;
     // fn connect(&self); // TODO need this kind of stateful info? new == connect?
-    fn close(self);
+    fn close(self) -> Result<(), io::Error>;
 }
 
 struct ControlPort {
@@ -35,21 +35,21 @@ struct ControlPort {
 }
 
 impl ControlPort {
-    fn new(dest_addr: &str, dest_port: u16) -> ControlPort {
+    fn new(dest_addr: &str, dest_port: u16) -> io::Result<ControlPort> {
         // TODO handle this error, don't unwrap
-        let stream = TcpStream::connect((dest_addr, dest_port)).unwrap();
+        let stream = try!(TcpStream::connect((dest_addr, dest_port)));
+        // this should be ok if above ok
         let address = stream.peer_addr().unwrap();
         let buf_stream = BufStream::new(stream);
         let vec_buffer = Vec::<u8>::with_capacity(2048);
         
         // return constructed instance
-        ControlPort {
-            // this should be ok if above ok
+        Ok(ControlPort {
             address: address,
             buf_stream: buf_stream,
             buffer: vec_buffer,
             time_connected: UTC::now()
-        }
+        })
     }
 }
 
@@ -80,7 +80,7 @@ impl<'a> ControlSocket<'a> for ControlPort {
     fn connection_time(&mut self) -> chrono::duration::Duration {
         chrono::UTC::now() - self.time_connected
     }
-    fn close(self) {
+    fn close(self) -> Result<(), io::Error>{
         // TODO unwrap call here: need to handle two possible error types:
         // IntoInnerError<BufStream<TcpStream>> and io::Error
          // let tcp_stream = match self.buf_stream.into_inner() {
@@ -91,9 +91,9 @@ impl<'a> ControlSocket<'a> for ControlPort {
          //     Ok(sb) => sb,
          //     Err(err) => return err
         // }
-        let tcp_stream = self.buf_stream.into_inner()
+        self.buf_stream.into_inner()
             .unwrap()
-            .shutdown(Shutdown::Both);
+            .shutdown(Shutdown::Both)
     }
 }
 
@@ -106,11 +106,14 @@ mod tests {
     
     // these two tests actually exercise the constructor and the three methods
     #[test]
-    fn constructor_no_connection() {
+    fn constructor() {
         let test_ip = "127.0.0.1";
         let test_port = 9051;
-        let mut test_control_port = ControlPort::new(test_ip, test_port);
-        assert_eq!(test_control_port.get_address(), test_ip);
+        let ip_string = test_ip.to_string() + ":" + &(test_port).to_string();
+        println!("{}", ip_string);
+        let mut test_control_port = ControlPort::new(test_ip, test_port)
+            .unwrap();
+        assert_eq!(test_control_port.get_address(), ip_string);
         assert_eq!(test_control_port.get_port(), test_port);
         assert!(test_control_port.is_localhost());
         // TODO figure out how to test valid state of buf_stream
@@ -121,8 +124,20 @@ mod tests {
     #[test]
     #[should_panic]
     fn constructor_bad_addr() {
-        // let test_ip = "9999999";
-        // let test_port = 9051;
-        // let test_control_port = ControlPort::new(test_ip, test_port);
+        let test_ip = "9999999";
+        let test_port = 9051;
+        let test_control_port = ControlPort::new(test_ip, test_port)
+            .unwrap();
+    }
+
+    #[test]
+    fn destructor() {
+        let test_ip = "127.0.0.1";
+        let test_port = 9051;
+        let ip_string = test_ip.to_string() + ":" + &(test_port).to_string();
+        println!("{}", ip_string);
+        let mut test_control_port = ControlPort::new(test_ip, test_port)
+            .unwrap();
+        test_control_port.close().ok().expect("Should have closed properly.")
     }
 }
