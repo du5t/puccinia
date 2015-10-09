@@ -162,13 +162,10 @@ impl<'a> ControlSocket<'a> for ControlPort {
 
 #[cfg(test)]
 mod tests {
-    use super::{ControlPort, ControlSocket};
+    use super::{ControlPort, ControlSocket, DomainSocket};
 
-    // TODO refactor all of these
-    
-    // these two tests actually exercise the constructor and the three methods
     #[test]
-    fn constructor() {
+    fn controlport_constructor() {
         let test_ip = "127.0.0.1";
         let test_port = 9051;
         let ip_string = test_ip.to_string() + ":" + &(test_port).to_string();
@@ -185,7 +182,7 @@ mod tests {
     // [should_panic(expected = "Could not connect with given addresses:")]
     #[test]
     #[should_panic]
-    fn constructor_bad_addr() {
+    fn controlport_constructor_bad_addr() {
         let test_ip = "9999999";
         let test_port = 9051;
         let test_control_port = ControlPort::new(test_ip, test_port)
@@ -193,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn destructor() {
+    fn controlport_destructor() {
         let test_ip = "127.0.0.1";
         let test_port = 9051;
         let ip_string = test_ip.to_string() + ":" + &(test_port).to_string();
@@ -201,5 +198,34 @@ mod tests {
         let mut test_control_port = ControlPort::new(test_ip, test_port)
             .unwrap();
         test_control_port.close().ok().expect("Should have closed properly.")
+    }
+
+    #[test]
+    fn domainsocket_constructor() {
+        let test_sockfile = "./torsocket";
+        let mut test_domain_socket = DomainSocket::new(test_sockfile)
+            .unwrap();
+        assert_eq!(test_domain_socket.get_address(), test_sockfile);
+        assert_eq!(test_domain_socket.get_port(), 0);
+        assert!(test_domain_socket.is_localhost());
+        // TODO figure out how to test valid state of buf_stream
+        // assert!(!test_domain_socket.buf_stream);
+    }
+
+    // [should_panic(expected = "Could not connect with given addresses:")]
+    #[test]
+    #[should_panic]
+    fn domainsocket_constructor_bad_path() {
+        let test_path = "/foo/bar";
+        let test_domain_socket = DomainSocket::new(test_path)
+            .unwrap();
+    }
+
+    #[test]
+    fn domainsocket_destructor() {
+        let test_sockfile = "./torsocket";
+        let mut test_domain_socket = DomainSocket::new(test_sockfile)
+            .unwrap();        
+        test_domain_socket.close().ok().expect("Should have closed properly.")
     }
 }
