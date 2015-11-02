@@ -1,13 +1,11 @@
 extern crate bufstream;
 extern crate chrono;
 extern crate unix_socket;
-use std::net::*;
 use std::error::Error;
-use std::io::{Write, BufRead}; // Read also?
-use std::io;
-// use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
+use std::io::{Write, BufRead, Result as ioResult, Error as ioError}; // Read also?
+use std::net::{TcpStream, SocketAddr, IpAddr, Ipv4Addr, Ipv6Addr, Shutdown};
 use self::bufstream::{BufStream}; // IntoInnerError also once we handle it well
-use self::chrono::*;
+use self::chrono::{UTC, DateTime, Duration};
 use self::unix_socket::UnixStream;
 
 // TODO store socket buffer size (1024?) as a constant out here somewhere
@@ -17,15 +15,15 @@ use self::unix_socket::UnixStream;
 
 
 trait ControlSocket<'a> {
-    fn send(&'a mut self, message: &str) -> Result<(), io::Error>;
-    fn recv(&'a mut self) -> Result<usize, io::Error>;
+    fn send(&'a mut self, message: &str) -> Result<(), ioError>;
+    fn recv(&'a mut self) -> Result<usize, ioError>;
     fn get_address(&'a mut self) -> String;
     fn get_port(&'a mut self) -> u16;
     // fn is_alive(&'a self) -> bool;
     fn is_localhost(&'a mut self) -> bool;
     fn connection_time(&'a mut self) -> Duration;
     // fn connect(&self); // TODO need this kind of stateful info? new == connect?
-    fn close(self) -> Result<(), io::Error>;
+    fn close(self) -> Result<(), ioError>;
 }
 
 struct DomainSocket {
@@ -43,7 +41,7 @@ struct ControlPort {
 }
 
 impl DomainSocket {
-    fn new(dest_path: &str) -> io::Result<DomainSocket> {
+    fn new(dest_path: &str) -> ioResult<DomainSocket> {
         let socket = try!(UnixStream::connect(dest_path));
         let buf_stream = BufStream::new(socket);
         let vec_buffer = Vec::<u8>::with_capacity(2048);
@@ -64,10 +62,10 @@ impl<'a> ControlSocket<'a> for DomainSocket {
         // TODO express better that sockets have no port or otherwise refactor
         return 0;
     }
-    fn send(&'a mut self, message: &str) -> Result<(), io::Error> {
+    fn send(&'a mut self, message: &str) -> Result<(), ioError> {
         self.buf_stream.write_all(message.as_bytes())
     }
-    fn recv(&'a mut self) -> Result<usize, io::Error> {
+    fn recv(&'a mut self) -> Result<usize, ioError> {
         self.buf_stream.read_until(b'\r', &mut self.buffer)
     }
     // fn is_alive(&'a self) -> bool;
@@ -80,9 +78,9 @@ impl<'a> ControlSocket<'a> for DomainSocket {
         chrono::UTC::now() - self.time_connected
     }
     // fn connect(&self); // TODO need this kind of stateful info? new == connect?
-    fn close(self) -> Result<(), io::Error>{
+    fn close(self) -> Result<(), ioError>{
         // TODO unwrap call here: need to handle two possible error types:
-        // IntoInnerError<BufStream<TcpStream>> and io::Error
+        // IntoInnerError<BufStream<TcpStream>> and ioError
          // let tcp_stream = match self.buf_stream.into_inner() {
          //     Ok(stream) => stream,
          //     Err(err) => return err
@@ -98,7 +96,7 @@ impl<'a> ControlSocket<'a> for DomainSocket {
 }
 
 impl ControlPort {
-    fn new(dest_addr: &str, dest_port: u16) -> io::Result<ControlPort> {
+    fn new(dest_addr: &str, dest_port: u16) -> ioResult<ControlPort> {
         let stream = try!(TcpStream::connect((dest_addr, dest_port)));
         // this should be ok if above ok
         let address = stream.peer_addr().unwrap();
@@ -122,10 +120,10 @@ impl<'a> ControlSocket<'a> for ControlPort {
     fn get_port(&mut self) -> u16 {
         self.address.port()
     }
-    fn send(&mut self, message: &str) -> Result<(), io::Error> {
+    fn send(&mut self, message: &str) -> Result<(), ioError> {
         self.buf_stream.write_all(message.as_bytes())
     }
-    fn recv(&mut self) -> Result<usize, io::Error> {
+    fn recv(&mut self) -> Result<usize, ioError> {
         self.buf_stream.read_until(b'\r', &mut self.buffer)
     }
     // fn is_alive(&mut self) -> bool {
@@ -142,9 +140,9 @@ impl<'a> ControlSocket<'a> for ControlPort {
     fn connection_time(&mut self) -> Duration {
         chrono::UTC::now() - self.time_connected
     }
-    fn close(self) -> Result<(), io::Error>{
+    fn close(self) -> Result<(), ioError>{
         // TODO unwrap call here: need to handle two possible error types:
-        // IntoInnerError<BufStream<TcpStream>> and io::Error
+        // IntoInnerError<BufStream<TcpStream>> and ioError
          // let tcp_stream = match self.buf_stream.into_inner() {
          //     Ok(stream) => stream,
          //     Err(err) => return err
